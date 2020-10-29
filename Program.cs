@@ -7,8 +7,10 @@ using Rdmp.Core.Curation.Data.Cohort;
 using Rdmp.Core.Providers;
 using Rdmp.Core.Repositories;
 using Rdmp.Core.Startup;
+using ReusableLibraryCode;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace cic
 {
@@ -41,7 +43,7 @@ namespace cic
 
                        foreach(var cic in cp.AllCohortIdentificationConfigurations)
                        {
-                            var fi = new FileInfo(Path.Combine(dir.FullName,cic.Name +".txt"));
+                            var fi = new FileInfo(Path.Combine(dir.FullName,UsefulStuff.RemoveIllegalFilenameCharacters(cic.Name) +".txt"));
 
                            using(var fs = new StreamWriter(fi.Create()))
                            {
@@ -73,9 +75,26 @@ namespace cic
             if(container == null)
                 return;
 
+            var contents = container.GetOrderedContents().ToArray();
+
+            if(contents.Length == 0)
+                return;
+
+            if(contents.Length == 1 && (container.Name.Equals("UNION")||container.Name.Equals("INTERSECT")||container.Name.Equals("EXCEPT")))
+            {
+                //container has only one thing in it which makes it kinda pointless so snip it out like the query builder would                
+                if(contents[0] is CohortAggregateContainer subContainer)
+                    WriteOut(subContainer,fs,tabs);
+
+                if(contents[0] is AggregateConfiguration ac)
+                    WriteOut(ac,fs,tabs);
+
+                return;
+            }
+
             fs.WriteLine(GetTabs(tabs) + container.Name);
 
-            foreach(var sub in container.GetOrderedContents())
+            foreach(var sub in contents)
             {
                 if(sub is CohortAggregateContainer subContainer)
                     WriteOut(subContainer,fs,tabs+1);
